@@ -1,0 +1,11 @@
+# Screenshot checklist
+- [ ] Azure portal: resource group, ACR, AKS cluster
+- [ ] ACR > Repositories: image with commit-SHA tag
+- [ ] `kubectl get deployment,pods,service` (pods Running, 2/2 ready)
+- [ ] Browser showing the app at the external IP
+- [ ] GitHub Actions: successful run with all stages expanded
+- [ ] Test results (surefire report / Actions log)
+- [ ] BEFORE change: browser showing Version 1
+- [ ] The commit + push
+- [ ] Pipeline auto-triggered, new image tag in ACR
+- [ ] AFTER change: browser showing the new message

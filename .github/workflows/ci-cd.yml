@@ -1,0 +1,85 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE_NAME: cicd-demo
+  # Set these under Settings > Secrets and variables > Actions > Variables
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  AKS_RESOURCE_GROUP: ${{ vars.AKS_RESOURCE_GROUP }}
+  AKS_CLUSTER: ${{ vars.AKS_CLUSTER }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Compile, run unit tests and package
+        run: mvn -B clean package
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/app.jar
+
+  docker-and-deploy:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Build and tag Docker image
+        run: |
+          IMAGE="$ACR_NAME.azurecr.io/$IMAGE_NAME:${{ github.sha }}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build -t "$IMAGE" -t "$ACR_NAME.azurecr.io/$IMAGE_NAME:latest" .
+
+      - name: Push image to ACR
+        run: docker push --all-tags "$ACR_NAME.azurecr.io/$IMAGE_NAME"
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER }}
+
+      - name: Install Ansible
+        run: pip install ansible-core
+
+      - name: Deploy and verify with Ansible
+        run: ansible-playbook -i ansible/inventory ansible/deploy.yml -e image="$IMAGE"
+
+      - name: Show cluster state
+        if: always()
+        run: kubectl get deployment,pods,service -l app=cicd-demo
