@@ -14,7 +14,20 @@ env:
   AKS_CLUSTER: ${{ vars.AKS_CLUSTER }}
 
 jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build-and-test:
+    needs: secret-scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
