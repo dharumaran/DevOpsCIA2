@@ -9,8 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class HelloController {
 
-    // CHANGE THIS TEXT for the redeployment demo (commit + push -> pipeline -> visible in browser)
-    static final String MESSAGE = "Version 1 - first release";
+    static final String MESSAGE = "Version 1 - first release - final";
 
     @GetMapping(value = "/", produces = "text/html")
     public String home() {
